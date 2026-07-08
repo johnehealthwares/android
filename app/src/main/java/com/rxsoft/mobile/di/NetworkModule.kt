@@ -1,0 +1,113 @@
+package com.rxsoft.mobile.di
+
+import com.rxsoft.mobile.BuildConfig
+import com.rxsoft.mobile.data.remote.api.*
+import com.rxsoft.mobile.data.remote.dto.BigDecimalAdapter
+import com.rxsoft.mobile.data.remote.dto.ListResponseAdapterFactory
+import com.rxsoft.mobile.data.remote.interceptor.AuthInterceptor
+import com.rxsoft.mobile.data.remote.interceptor.TokenRefreshInterceptor
+import com.rxsoft.mobile.util.ServerUrlManager
+import com.rxsoft.mobile.util.TokenManager
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
+import java.util.concurrent.TimeUnit
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object NetworkModule {
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        tokenRefreshInterceptor: TokenRefreshInterceptor
+    ): OkHttpClient {
+        val logging = HttpLoggingInterceptor().apply {
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+            else HttpLoggingInterceptor.Level.NONE
+        }
+        return OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
+            .addInterceptor(tokenRefreshInterceptor)
+            .addInterceptor(logging)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideMoshi(): Moshi {
+        return Moshi.Builder()
+            .add(BigDecimalAdapter())
+            .add(ListResponseAdapterFactory())
+            .add(KotlinJsonAdapterFactory())
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideRetrofit(okHttpClient: OkHttpClient, serverUrlManager: ServerUrlManager, moshi: Moshi): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(serverUrlManager.getUrl())
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthApi(retrofit: Retrofit): AuthApi = retrofit.create(AuthApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideSalesApi(retrofit: Retrofit): SalesApi = retrofit.create(SalesApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideItemsApi(retrofit: Retrofit): ItemsApi = retrofit.create(ItemsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideCustomersApi(retrofit: Retrofit): CustomersApi = retrofit.create(CustomersApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideInventoryApi(retrofit: Retrofit): InventoryApi = retrofit.create(InventoryApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideReportsApi(retrofit: Retrofit): ReportsApi = retrofit.create(ReportsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun providePaymentMethodsApi(retrofit: Retrofit): PaymentMethodsApi = retrofit.create(PaymentMethodsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideConfigApi(retrofit: Retrofit): ConfigApi = retrofit.create(ConfigApi::class.java)
+
+    @Provides
+    @Singleton
+    fun providePricingApi(retrofit: Retrofit): PricingApi = retrofit.create(PricingApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUploadApi(retrofit: Retrofit): UploadApi = retrofit.create(UploadApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideAuthInterceptor(tokenManager: TokenManager): AuthInterceptor {
+        return AuthInterceptor(tokenManager)
+    }
+}
