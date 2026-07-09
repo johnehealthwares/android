@@ -58,6 +58,7 @@ class CheckoutViewModel @Inject constructor(
                     }
 
                     val request = CreateSaleRequest(
+                        saleNumber = "POS-${System.currentTimeMillis()}",
                         storeId = storeId,
                         customerId = config.defaultCustomerId,
                         stockLocationId = config.stockLocationId,
@@ -65,7 +66,8 @@ class CheckoutViewModel @Inject constructor(
                             CreateSaleLine(
                                 itemId = c.product.id,
                                 quantity = BigDecimal(c.quantity),
-                                unitPrice = BigDecimal(c.product.price)
+                                unitPrice = BigDecimal(c.product.price),
+                                uomId = ""
                             )
                         },
                         payments = listOf(

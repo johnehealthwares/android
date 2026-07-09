@@ -1,11 +1,11 @@
 package com.rxsoft.mobile.di
 
-import com.rxsoft.mobile.BuildConfig
 import com.rxsoft.mobile.data.remote.api.*
 import com.rxsoft.mobile.data.remote.dto.BigDecimalAdapter
 import com.rxsoft.mobile.data.remote.dto.ListResponseAdapterFactory
 import com.rxsoft.mobile.data.remote.interceptor.AuthInterceptor
 import com.rxsoft.mobile.data.remote.interceptor.TokenRefreshInterceptor
+import com.rxsoft.mobile.data.remote.interceptor.TraceLoggingInterceptor
 import com.rxsoft.mobile.util.ServerUrlManager
 import com.rxsoft.mobile.util.TokenManager
 import com.squareup.moshi.Moshi
@@ -15,7 +15,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
@@ -29,16 +28,13 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
-        tokenRefreshInterceptor: TokenRefreshInterceptor
+        tokenRefreshInterceptor: TokenRefreshInterceptor,
+        traceLoggingInterceptor: TraceLoggingInterceptor,
     ): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
-            else HttpLoggingInterceptor.Level.NONE
-        }
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(tokenRefreshInterceptor)
-            .addInterceptor(logging)
+            .addInterceptor(traceLoggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
@@ -109,5 +105,11 @@ object NetworkModule {
     @Singleton
     fun provideAuthInterceptor(tokenManager: TokenManager): AuthInterceptor {
         return AuthInterceptor(tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideTraceLoggingInterceptor(): TraceLoggingInterceptor {
+        return TraceLoggingInterceptor()
     }
 }

@@ -28,7 +28,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.rxsoft.mobile.ui.auth.AppScreen
 import com.rxsoft.mobile.ui.auth.AuthViewModel
+import com.rxsoft.mobile.ui.auth.EnterPinScreen
 import com.rxsoft.mobile.ui.auth.LoginScreen
 import com.rxsoft.mobile.ui.customers.CustomerListScreen
 import com.rxsoft.mobile.ui.designsystem.components.AppBottomNav
@@ -53,6 +55,8 @@ import com.rxsoft.mobile.ui.shop.ProductDetailScreen
 
 sealed class Screen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector?) {
     data object Login : Screen("login", "Login", null)
+    data object PinSetup : Screen("pin_setup", "Create PIN", null)
+    data object PinUnlock : Screen("pin_unlock", "Enter PIN", null)
     data object Shop : Screen("shop", "Shop", Icons.Default.Store)
     data object ProductDetail : Screen("shop/product/{itemId}", "Product Detail", null) {
         fun createRoute(itemId: String) = "shop/product/$itemId"
@@ -78,19 +82,29 @@ sealed class Screen(val route: String, val title: String, val icon: androidx.com
 
 @Composable
 fun AppNavigation() {
-    val navController = rememberNavController()
     val authViewModel: AuthViewModel = hiltViewModel()
-    val isLoggedIn by authViewModel.isLoggedIn.collectAsState(initial = null)
+    val screenState by authViewModel.screenState.collectAsState()
 
-    when (isLoggedIn) {
-        null -> Unit
-        false -> LoginScreen(onLoginSuccess = { authViewModel.onLoginSuccess() })
-        true -> MainScaffold(navController, authViewModel)
+    when (screenState) {
+        is AppScreen.Loading -> Unit
+        is AppScreen.Login -> LoginScreen(
+            onLoginSuccess = { authViewModel.onLoginSuccess() },
+        )
+        is AppScreen.PinSetup -> EnterPinScreen(
+            onNavigateToHome = { authViewModel.onPinAuthenticated() },
+            onNavigateToLogin = { authViewModel.onPinCancelled() },
+        )
+        is AppScreen.PinUnlock -> EnterPinScreen(
+            onNavigateToHome = { authViewModel.onPinAuthenticated() },
+            onNavigateToLogin = { authViewModel.onPinCancelled() },
+        )
+        is AppScreen.Main -> MainScaffold(authViewModel)
     }
 }
 
 @Composable
-fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel) {
+fun MainScaffold(authViewModel: AuthViewModel) {
+    val navController = rememberNavController()
     val settingsViewModel: SettingsViewModel = hiltViewModel()
     val activeModules by settingsViewModel.activeModules.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -155,6 +169,7 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
             },
         ) {
             composable(Screen.Pos.route) {
+                authViewModel.recordActivity()
                 PosOrderListScreen(
                     posConfigManager = authViewModel.posConfigManager,
                     onNewSale = {
@@ -170,6 +185,7 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
                 )
             }
             composable(Screen.PosTerminal.route) {
+                authViewModel.recordActivity()
                 PosTerminalScreen(
                     onOrderCreated = { saleId ->
                         navController.navigate(Screen.PosDetail.createRoute(saleId)) {
@@ -184,12 +200,17 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
                 arguments = listOf(navArgument("saleId") { type = NavType.StringType }),
             ) { backStackEntry ->
                 val saleId = backStackEntry.arguments?.getString("saleId") ?: return@composable
+                authViewModel.recordActivity()
                 PosOrderDetailScreen(saleId = saleId, onBack = { navController.popBackStack() })
             }
 
-            composable(Screen.Customers.route) { CustomerListScreen() }
+            composable(Screen.Customers.route) {
+                authViewModel.recordActivity()
+                CustomerListScreen()
+            }
 
             composable(Screen.Items.route) {
+                authViewModel.recordActivity()
                 ItemListScreen(
                     onAddItem = { navController.navigate(Screen.ItemForm.createRoute(null)) },
                     onEditItem = { itemId -> navController.navigate(Screen.ItemForm.createRoute(itemId)) },
@@ -200,6 +221,7 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
                 arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
+                authViewModel.recordActivity()
                 ItemFormScreen(
                     itemId = if (itemId == "new") null else itemId,
                     onBack = { navController.popBackStack() },
@@ -208,17 +230,23 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
             }
 
             composable(Screen.Inventory.route) {
+                authViewModel.recordActivity()
                 StockBalanceScreen(
                     onAdjustmentClick = { navController.navigate(Screen.StockAdjustment.route) },
                 )
             }
             composable(Screen.StockAdjustment.route) {
+                authViewModel.recordActivity()
                 StockAdjustmentScreen(onBack = { navController.popBackStack() })
             }
 
-            composable(Screen.Reports.route) { DailySalesScreen() }
+            composable(Screen.Reports.route) {
+                authViewModel.recordActivity()
+                DailySalesScreen()
+            }
 
             composable(Screen.Shop.route) {
+                authViewModel.recordActivity()
                 MedicineCatalogScreen(
                     onProductClick = { product ->
                         navController.navigate(Screen.ProductDetail.createRoute(product.id))
@@ -231,6 +259,7 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
                 arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+                authViewModel.recordActivity()
                 ProductDetailScreen(
                     itemId = itemId,
                     onBack = { navController.popBackStack() },
@@ -238,6 +267,7 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
                 )
             }
             composable(Screen.Checkout.route) {
+                authViewModel.recordActivity()
                 CheckoutScreen(
                     onBack = { navController.popBackStack() },
                     onAddProduct = {
@@ -254,6 +284,7 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
             }
 
             composable(Screen.Prescription.route) {
+                authViewModel.recordActivity()
                 UploadPrescriptionScreen(
                     onBack = { navController.popBackStack() },
                     onPrescriptionMedicine = { navController.navigate(Screen.Shop.route) },
@@ -261,9 +292,13 @@ fun MainScaffold(navController: NavHostController, authViewModel: AuthViewModel)
                 )
             }
 
-            composable(Screen.Profile.route) { ProfileScreen() }
+            composable(Screen.Profile.route) {
+                authViewModel.recordActivity()
+                ProfileScreen()
+            }
 
             composable(Screen.Settings.route) {
+                authViewModel.recordActivity()
                 SettingsScreen(
                     externalVm = settingsViewModel,
                     onSignOut = { authViewModel.logout() },

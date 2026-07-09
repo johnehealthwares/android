@@ -16,6 +16,7 @@ class AuthInterceptor(
 
         val request = if (token != null) {
             Log.d("AuthInterceptor", "Attaching token to ${original.url.encodedPath}")
+           
             original.newBuilder()
                 .addHeader("Authorization", "Bearer $token")
                 .build()

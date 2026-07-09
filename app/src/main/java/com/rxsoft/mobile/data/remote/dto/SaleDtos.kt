@@ -41,6 +41,7 @@ data class SalePaymentDto(
 
 @JsonClass(generateAdapter = true)
 data class CreateSaleRequest(
+    @Json(name = "saleNumber") val saleNumber: String,
     @Json(name = "saleChannel") val saleChannel: String = "mobile",
     @Json(name = "storeId") val storeId: String,
     @Json(name = "customerId") val customerId: String? = null,
@@ -50,7 +51,8 @@ data class CreateSaleRequest(
     val notes: String? = null,
     @Json(name = "orderDiscountPercent") val orderDiscountPercent: BigDecimal? = null,
     @Json(name = "orderDiscountAmount") val orderDiscountAmount: BigDecimal? = null,
-    @Json(name = "taxAmount") val taxAmount: BigDecimal? = null
+    @Json(name = "taxAmount") val taxAmount: BigDecimal? = null,
+    val hold: Boolean? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -58,8 +60,9 @@ data class CreateSaleLine(
     @Json(name = "itemId") val itemId: String,
     val quantity: BigDecimal,
     @Json(name = "unitPrice") val unitPrice: BigDecimal,
-    @Json(name = "uomId") val uomId: String? = null,
-    @Json(name = "uomFactor") val uomFactor: BigDecimal? = null
+    @Json(name = "uomId") val uomId: String,
+    @Json(name = "uomFactor") val uomFactor: BigDecimal? = null,
+    @Json(name = "lotId") val lotId: String? = null
 )
 
 @JsonClass(generateAdapter = true)

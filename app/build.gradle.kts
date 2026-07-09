@@ -84,6 +84,9 @@ dependencies {
     // Images
     implementation(libs.coil.compose)
 
+    // Security
+    implementation(libs.androidx.security.crypto)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -72,6 +72,8 @@ class PosTerminalViewModel @Inject constructor(
         posConfigManager.loadConfig()
     }
 
+    val configState: StateFlow<UiState<UserPosConfig>> = posConfigManager.configState
+
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
         if (query.length >= 2) {
@@ -189,6 +191,17 @@ class PosTerminalViewModel @Inject constructor(
         }
     }
 
+    fun generateSaleCode(): String {
+    val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    val code = StringBuilder("MOBPOS-")
+
+    repeat(8) {
+        code.append(chars.random())
+    }
+
+    return code.toString()
+}
+
     fun selectPaymentMethod(method: PaymentMethodDto) {
         _selectedPaymentMethod.value = method
     }
@@ -199,7 +212,7 @@ class PosTerminalViewModel @Inject constructor(
 
     fun checkout() {
         val cart = _cartItems.value
-        val config = posConfig
+        val checkoutConfig = posConfig
         val paymentMethod = _selectedPaymentMethod.value
 
         if (cart.isEmpty()) {
@@ -207,9 +220,27 @@ class PosTerminalViewModel @Inject constructor(
             _checkoutState.value = UiState.Error("Cart is empty")
             return
         }
-        if (config?.stockLocation?.id == null) {
-            Log.e("PosTerminalVM", "Checkout failed: stock location not configured")
-            _checkoutState.value = UiState.Error("Stock Location configuration not set")
+
+        val configState = posConfigManager.configState.value
+        if (configState is UiState.Loading) {
+            _checkoutState.value = UiState.Error("Loading POS configuration, please wait...")
+            return
+        }
+        if (configState is UiState.Error) {
+            _checkoutState.value = UiState.Error("POS configuration error: ${configState.message}")
+            return
+        }
+
+        val config = checkoutConfig
+        if (config == null) {
+            Log.e("PosTerminalVM", "Checkout failed: POS config is null, reloading")
+            posConfigManager.refresh()
+            _checkoutState.value = UiState.Error("POS configuration not loaded. Please try again.")
+            return
+        }
+        if (config.stockLocation?.id == null) {
+            Log.e("PosTerminalVM", "Checkout failed: no stock location assigned")
+            _checkoutState.value = UiState.Error("No stock location assigned to your user. Contact your administrator.")
             return
         }
         if (paymentMethod == null) {
@@ -218,16 +249,18 @@ class PosTerminalViewModel @Inject constructor(
             return
         }
 
-        val storeId = config.storeId ?: run {
+        val storeId = config.stockLocation.id ?: run {
             Log.e("PosTerminalVM", "Checkout failed: storeId not configured")
             _checkoutState.value = UiState.Error("Store configuration not set")
             return
         }
         val total = subtotal
+        val saleNumber = generateSaleCode()
 
         viewModelScope.launch {
             _checkoutState.value = UiState.Loading
             val request = CreateSaleRequest(
+                saleNumber = saleNumber,
                 storeId = storeId,
                 customerId = _selectedCustomer.value?.id,
                 stockLocationId = if (config.autoSelectLocation != false) config.stockLocation?.id else null,
@@ -236,7 +269,7 @@ class PosTerminalViewModel @Inject constructor(
                         itemId = c.item.id,
                         quantity = c.quantity,
                         unitPrice = c.unitPrice,
-                        uomId = c.uomId,
+                        uomId = c.uomId ?: c.item.saleUomId ?: c.item.baseUomId ?: "",
                         uomFactor = c.uomFactor
                     )
                 },
